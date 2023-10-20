@@ -1,0 +1,99 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:${POSTGRES_VERSION}
+    container_name: postgres
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    restart: always
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - network
+
+  loki:
+    image: grafana/loki:${LOKI_VERSION}
+    container_name: loki
+    ports:
+      - "${LOKI_PORT}:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: always
+    volumes:
+      - ./config/loki/local-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
+    networks:
+      - network
+
+  prometheus:
+    image: prom/prometheus:v${PROMETHEUS_VERSION}
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+    ports:
+      - "${PROMETHEUS_PORT}:9090"
+    restart: always
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    networks:
+      - network
+
+  pushgateway:
+    image: prom/pushgateway:v${PUSHGATEWAY_VERSION}
+    container_name: pushgateway
+    command: 
+      - --persistence.file="/pushgateway/persistence.db"
+      - --persistence.interval=30s
+    ports:
+      - "${PUSHGATEWAY_PORT}:9091"
+    restart: always
+    volumes:
+      - pushgateway_data:/pushgateway
+    networks:
+      - network
+
+  pyroscope:
+    image: grafana/pyroscope:${PYROSCOPE_VERSION}
+    container_name: pyroscope
+    ports:
+      - "${PYROSCOPE_PORT}:4040"
+    restart: always
+    volumes:
+      - pyroscope_data:/data
+    networks:
+      - network
+
+  grafana:
+    image: grafana/grafana:${GRAFANA_VERSION}
+    container_name: grafana
+    ports:
+      - "${GRAFANA_PORT}:3000"
+    restart: always
+    environment:
+      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning
+      - GF_AUTH_ANONYMOUS_ENABLED=false
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+      - GF_FEATURE_TOGGLES_ENABLE=flameGraph
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - ./config/grafana/provisioning:/etc/grafana/provisioning
+    networks:
+      - network
+
+volumes:
+  postgres_data:
+  loki_data:
+  prometheus_data:
+  pyroscope_data:
+  pushgateway_data:
+
+networks:
+  network:
+    name: ${NETWORK_NAME}
